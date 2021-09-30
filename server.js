@@ -23,6 +23,13 @@ MongoClient.connect(dbConnectionStr, { useUnifiedTopology: true })
 
 //Auth0
 const { auth, requiresAuth } = require('express-openid-connect');
+
+app.set('view engine', 'ejs')
+app.use(express.static('public'))
+app.use(express.urlencoded({ extended: true }))//handle nested data coming thru the query string
+app.use(express.json())
+
+
 app.use(
     auth({
         authRequired: false,
@@ -35,37 +42,31 @@ app.use(
     })
 );
 
-// This works but I know it's not ideal
-app.get('/test', (req,res) =>{
+// This is what users see before they login
+app.get('/', (req,res) =>{
+    if(req.oidc.isAuthenticated()){
+        res.redirect('/birthdayPage');
+    }
     res.render('landingpage.ejs')
 })
 
+// app.get('/test', (req, res) => {
+//     const isAuthenticated = req.oidc.isAuthenticated();
+//     console.log("check if user is authenticated: ", isAuthenticated)
+//     if(!isAuthenticated){
+//         return res.redirect('/login');
+//     }
+//     res.render('index.ejs', { info: [], isAuthenticated })
+// })
 
-app.set('view engine', 'ejs')
-app.use(express.static('public'))
-app.use(express.urlencoded({ extended: true }))//handle nested data coming thru the query string
-app.use(express.json())
+app.use(requiresAuth())
 
-
-
-app.get('/', (req, res) => {
+app.get('/birthdayPage', (req, res) => {
     const isAuthenticated = req.oidc.isAuthenticated();
     console.log("check if user is authenticated: ", isAuthenticated)
-    if(!isAuthenticated){
-        return res.redirect('/login');
-    }
     res.render('index.ejs', { info: [], isAuthenticated })
 })
 
-app.get('/login', (req, res) => {
-    console.log("check if user is authenticated: ", req.oidc.isAuthenticated())
-    if(req.oidc.isAuthenticated()){
-        return res.redirect('/')
-    }
-    
-});
-
-app.use(requiresAuth())
 
 // app.get('/', (req, res) => {
 //     res.render('index.ejs', { info: [] })
@@ -78,20 +79,14 @@ app.use(requiresAuth())
 // });
 
 
-app.get('/profile', requiresAuth(), (req, res) => {
+app.get('/profile',  (req, res) => {
     res.send(JSON.stringify(req.oidc.user))
 })
 
-app.get('/logout', requiresAuth(), (req, res) => {
-    if(!isAuthenticated){
-        return res.redirect('/test');
-    }
-    res.render('landingpage.ejs', { info: [], isAuthenticated })
-})
 
 //sort birthdays by month to get all birthdays in that month
 
-app.get('/filterBirthdays', requiresAuth(), async (req, res) => {
+app.get('/filterBirthdays',  async (req, res) => {
     const user_id = req.oidc.user.sub;
     const month = req.query.month
     const getBirthday = await db.collection('birthdays').find({
@@ -104,7 +99,7 @@ app.get('/filterBirthdays', requiresAuth(), async (req, res) => {
 })
 
 // find by all names
-app.get('/filterByName', requiresAuth(), async (req, res) => {
+app.get('/filterByName',  async (req, res) => {
     const { searchTerm } = req.query;
     const regex = new RegExp(searchTerm, 'gi');
     const matches = await db.collection('birthdays').find({
@@ -131,7 +126,7 @@ app.get('/filterByName', requiresAuth(), async (req, res) => {
 // }
 
 
-app.get('/birthdayForm', requiresAuth(), (req, res) => {
+app.get('/birthdayForm', (req, res) => {
     res.render('addbirthday.ejs')
 })
 
